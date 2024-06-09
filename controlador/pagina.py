@@ -1,38 +1,41 @@
 #pagina web front-end
-from flask import Flask, render_template, request
-from flask_mysqldb import MySQL
-
-app = Flask(__name__)
-
+from flask import Flask, render_template, request, redirect, Response, session
+from flask_mysqldb import MySQL, MySQLdb
+app = Flask(__name__, template_folder='../vista/template')
 
 app.config['MYSQL_HOST'] = 'localhost'
+app.config['MYSQL_USER'] = 'root'
+app.config['MYSQL_PASSWORD'] = ''
 app.config['MYSQL_DB'] = 'tienda'
+app.config['MYSQL_CURSORCLASS'] = 'DictCursor'
 mysql = MySQL(app)
 
-@app.route('/login', methods=['POST', 'GET'])
+@app.route('/login', methods=["GET","POST"])
 def login():
-    if request.method == 'POST':
-        nombreComprador = request.form['nombreComprador']
-        idComprador = request.form['idComprador']
-        cur = mysql.connection.cursor()
-        cur.execute('SELECT * FROM usuarios WHERE usuario = %s AND password = %s', (nombreComprador, idComprador))
-        nombreComprador = cur.fetchall()
-        if nombreComprador:
-            return 'usuario logeado'
+    if request.method == 'POST' and 'txtNombre' in request.form and 'txtID':
+        _Nombre = request.form['txtNombre']
+        _ID = request.form['txtID']
+        cur=mysql.connection.cursor()
+        cur.execute("SELECT * FROM comprador WHERE nombreComprador= %s AND idComprador= %s",(_Nombre,_ID))
+        account = cur.fetchone()
+
+        if account:
+            session['logueado'] = True
+            session['ID'] = account['idComprador']
+            session['Nombre'] = account['nombreComprador']
+            return redirect('/home')
         else:
-            return 'usuario no logeado'
+            return render_template('login.html', msg='Nombre o ID incorrecto')
     return render_template('login.html')
+    
 
 @app.route('/home')
-def inicio():
-    return render_template('home.html')
+def home():
+    if 'logueado' in session:
+        return render_template('home.html', nombre=session['Nombre'])
+    else:
+        return redirect('/login')
 
-@app.route('/compra')
-def compra():
-    return render_template('compra.html')
-
-if __name__ == '__main__':
-    app.run()
 
 if __name__ == '__main__':
-    app.run(port=5000, debug=True)
+    app.run(debug=True, host='0.0.0.0', port=5000, threaded=True)
